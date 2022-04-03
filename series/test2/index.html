@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+
+    <title>test2 | 枫落的博客</title>
+    <meta property="og:title" content="test2 - 枫落的博客">
+    <meta property="og:type" content="article">
+        
+        
+    <meta name="Keywords" content="golang">
+    <meta name="description" content="test2">
+        
+    <meta name="author" content="枫落">
+    <meta property="og:url" content="https://fengluodb.github.io/series/test2/">
+    <link rel="shortcut icon" href='/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/css/normalize.css'>
+    <link rel="stylesheet" href='/css/style.css'>
+    <link rel="alternate" type="application/rss+xml" href="https://fengluodb.github.io/series/test2/index.xml" title="枫落的博客" />
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    
+        <link href="https://cdn.bootcdn.net/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.css" rel="stylesheet">
+    
+    
+    
+    
+</head>
+
+<body>
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://fengluodb.github.io">
+                        枫落的博客
+                    </a>
+                
+                <p class="description">热爱编程，专注Go语言开发</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://fengluodb.github.io">首页</a>
+                    
+                    <a  href="https://fengluodb.github.io/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://fengluodb.github.io/series/" title="系列">系列</a>
+                    
+                    <a  href="https://fengluodb.github.io/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    
+
+    
+    <article class="post">
+        <header>
+            <h1 class="post-title">
+                <a href="https://fengluodb.github.io/post/example-post/">Example Post</a>
+            </h1>
+        </header>
+        <date class="post-meta meta-date">
+            2022年4月3日
+        </date>
+        
+        <div class="post-meta meta-category">
+            |
+            
+            <a href='/categories/golang'>golang</a>
+            
+        </div>
+        
+        <div class="post-content">
+            并发安全的map在日常开发中使用极为频繁，单纯通过map与sync.RWLock结合并给整个map上粗粒度锁的方式效率并不高。在go1.9中引入sync.Map，通过快慢路径的方式提升并发读性能，除此之外还可以用大锁打为小锁的方式减少并发冲突，获得更优的性能表现。 源码解析 每次操作……
+            <p class="readmore"><a href="https://fengluodb.github.io/post/example-post/">阅读全文</a></p>
+        </div>
+    </article>
+    
+
+    
+
+
+
+
+
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2022 <a href="https://fengluodb.github.io">枫落的博客 By 枫落</a>
+        
+    </div>
+    <br />
+</footer>
+
+
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/js/totop.js?v=0.0.0' async=""></script>
+<script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://fengluodb.github.io/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://fengluodb.github.io">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://fengluodb.github.io/post/example-post/" title="Example Post">
+            <svg t="1648977439393" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
+                p-id="2205" data-darkreader-inline-fill="" width="20" height="16">
+                <path
+                    d="M682.61 398.43H284.52v56.87h398.09v-56.87zM284.52 796.52h398.09v-56.87H284.52v56.87z m0-170.61h511.83v-56.87H284.52v56.87z m682.44-386.772v-11.317h-11.318L739.48 11.658V0.341h-11.317L727.82 0l-0.34 0.341h-556.7c-62.84 0-113.74 50.899-113.74 113.74v796.18c0 62.84 50.9 113.739 113.74 113.739h682.44c62.84 0 113.74-50.899 113.74-113.74V243.403l2.104-2.104-2.105-2.16zM739.48 92.072l135.748 135.749H739.48V92.072zM910.09 910.26c0 31.392-25.478 56.87-56.87 56.87H170.78c-31.392 0-56.87-25.478-56.87-56.87V114.081c0-31.392 25.478-56.87 56.87-56.87h511.83v227.48h227.48v625.57z"
+                    p-id="2206" fill="#1296db" data-darkreader-inline-fill="" style="--darkreader-inline-fill:#316986;">
+                </path>
+            </svg>
+            Example Post
+        </a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://fengluodb.github.io/categories/golang/">
+            <svg t="1648978838653" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
+                p-id="7618" data-darkreader-inline-fill="" width="20" height="20">
+                <path
+                    d="M256 734.101333v64H170.666667v-64h85.333333z m597.333333 0v64H298.666667v-64h554.666666zM256 493.184v64H170.666667v-64h85.333333z m597.333333 0v64H298.666667v-64h554.666666zM256 252.245333v64H170.666667v-64h85.333333z m597.333333 0v64H298.666667v-64h554.666666z"
+                    p-id="7619" fill="#1296db" data-darkreader-inline-fill="" style="--darkreader-inline-fill:#316986;">
+                </path>
+            </svg>
+            golang (1)
+        </a>
+    </li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/series/'>系列</a></h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://fengluodb.github.io/series/test/">
+            <svg t="1648978987470" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
+                p-id="8471" data-darkreader-inline-fill="" width="20" height="20">
+                <path
+                    d="M126.373 96.666l0 0 0 0zM892.107 319.978q18.694 26.633 8.411 60.266l-128.472 423.275q-8.882 29.904-35.738 50.22t-57.231 20.328l-431.215 0q-35.974 0-69.383-24.998t-46.492-61.431q-11.212-31.304-0.929-59.337 0-1.87 1.4-12.609t1.87-17.28q0.471-3.742-1.4-10.047t-1.4-9.105q0.929-5.14 3.742-9.811t7.705-10.975 7.705-10.976q10.739-17.752 21.022-42.75t14.01-42.75q1.4-4.671 0.235-14.01t-0.235-13.082q1.4-5.14 7.941-13.082t7.941-10.739q9.811-16.822 19.623-42.984t11.681-42.043q0.471-4.199-1.164-14.952t0.235-13.082q1.87-6.069 10.283-14.245t10.283-10.517q8.882-12.153 19.858-39.48t12.846-45.079q0.472-3.742-1.4-11.917t-0.929-12.375q0.929-3.742 4.199-8.411t8.411-10.739 7.941-9.811q3.742-5.612 7.705-14.245t7.012-16.352 7.469-16.823 9.105-14.952 12.375-10.975 16.822-5.377 22.186 2.565l-0.471 1.4q17.753-4.199 23.821-4.199l355.539 0q34.573 0 53.255 26.164t8.411 60.737l-128.015 423.275q-16.822 55.597-33.41 71.711t-60.031 16.117l-405.995 0q-12.609 0-17.752 7.012-5.14 7.469-0.471 20.093 11.212 32.703 67.278 32.703l431.215 0q13.553 0 26.163-7.247t16.352-19.387l140.153-461.119q3.27-10.282 2.342-26.633 17.752 7.012 27.562 20.093zM395.014 320.921q-1.87 6.069 0.929 10.517t9.34 4.435l284.049 0q6.069 0 11.917-4.435t7.705-10.517l9.811-29.904q1.87-6.069-0.929-10.517t-9.34-4.435l-284.049 0q-6.069 0-11.918 4.435t-7.705 10.517zM356.228 440.524q-1.87 6.069 0.929 10.517t9.34 4.435l284.049 0q6.069 0 11.917-4.435t7.705-10.517l9.811-29.904q1.87-6.069-0.929-10.517t-9.34-4.435l-284.049 0q-6.069 0-11.917 4.435t-7.705 10.517z"
+                    p-id="8472" fill="#1296db" data-darkreader-inline-fill="" style="--darkreader-inline-fill:#316986;">
+                </path>
+            </svg>
+            test (1)
+        </a>
+    </li>
+    
+    <li>
+        <a href="https://fengluodb.github.io/series/test2/">
+            <svg t="1648978987470" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
+                p-id="8471" data-darkreader-inline-fill="" width="20" height="20">
+                <path
+                    d="M126.373 96.666l0 0 0 0zM892.107 319.978q18.694 26.633 8.411 60.266l-128.472 423.275q-8.882 29.904-35.738 50.22t-57.231 20.328l-431.215 0q-35.974 0-69.383-24.998t-46.492-61.431q-11.212-31.304-0.929-59.337 0-1.87 1.4-12.609t1.87-17.28q0.471-3.742-1.4-10.047t-1.4-9.105q0.929-5.14 3.742-9.811t7.705-10.975 7.705-10.976q10.739-17.752 21.022-42.75t14.01-42.75q1.4-4.671 0.235-14.01t-0.235-13.082q1.4-5.14 7.941-13.082t7.941-10.739q9.811-16.822 19.623-42.984t11.681-42.043q0.471-4.199-1.164-14.952t0.235-13.082q1.87-6.069 10.283-14.245t10.283-10.517q8.882-12.153 19.858-39.48t12.846-45.079q0.472-3.742-1.4-11.917t-0.929-12.375q0.929-3.742 4.199-8.411t8.411-10.739 7.941-9.811q3.742-5.612 7.705-14.245t7.012-16.352 7.469-16.823 9.105-14.952 12.375-10.975 16.822-5.377 22.186 2.565l-0.471 1.4q17.753-4.199 23.821-4.199l355.539 0q34.573 0 53.255 26.164t8.411 60.737l-128.015 423.275q-16.822 55.597-33.41 71.711t-60.031 16.117l-405.995 0q-12.609 0-17.752 7.012-5.14 7.469-0.471 20.093 11.212 32.703 67.278 32.703l431.215 0q13.553 0 26.163-7.247t16.352-19.387l140.153-461.119q3.27-10.282 2.342-26.633 17.752 7.012 27.562 20.093zM395.014 320.921q-1.87 6.069 0.929 10.517t9.34 4.435l284.049 0q6.069 0 11.917-4.435t7.705-10.517l9.811-29.904q1.87-6.069-0.929-10.517t-9.34-4.435l-284.049 0q-6.069 0-11.918 4.435t-7.705 10.517zM356.228 440.524q-1.87 6.069 0.929 10.517t9.34 4.435l284.049 0q6.069 0 11.917-4.435t7.705-10.517l9.811-29.904q1.87-6.069-0.929-10.517t-9.34-4.435l-284.049 0q-6.069 0-11.917 4.435t-7.705 10.517z"
+                    p-id="8472" fill="#1296db" data-darkreader-inline-fill="" style="--darkreader-inline-fill:#316986;">
+                </path>
+            </svg>
+            test2 (1)
+        </a>
+    </li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://fengluodb.github.io/tags/golang/">
+        <svg t="1648977812460" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
+            p-id="3043" data-darkreader-inline-fill="" width="16" height="16">
+            <path
+                d="M985.6 473.6 985.6 473.6l-256 256-256 256 0 0C454.4 1011.2 422.4 1024 384 1024c-38.4 0-70.4-12.8-89.6-38.4l0 0-256-256 0 0C12.8 710.4 0 678.4 0 640c0-38.4 12.8-70.4 38.4-89.6l0 0 256-256 256-256 0 0C569.6 12.8 601.6 0 640 0l256 0c70.4 0 128 57.6 128 128l0 256C1024 422.4 1011.2 454.4 985.6 473.6zM768 128c-70.4 0-128 57.6-128 128 0 70.4 57.6 128 128 128 70.4 0 128-57.6 128-128C896 185.6 838.4 128 768 128z"
+                p-id="3044" fill="#1296db" data-darkreader-inline-fill="" style="--darkreader-inline-fill:#316986;">
+            </path>
+        </svg>
+        golang
+    </a>
+    
+    <a href="https://fengluodb.github.io/tags/test/">
+        <svg t="1648977812460" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
+            p-id="3043" data-darkreader-inline-fill="" width="16" height="16">
+            <path
+                d="M985.6 473.6 985.6 473.6l-256 256-256 256 0 0C454.4 1011.2 422.4 1024 384 1024c-38.4 0-70.4-12.8-89.6-38.4l0 0-256-256 0 0C12.8 710.4 0 678.4 0 640c0-38.4 12.8-70.4 38.4-89.6l0 0 256-256 256-256 0 0C569.6 12.8 601.6 0 640 0l256 0c70.4 0 128 57.6 128 128l0 256C1024 422.4 1011.2 454.4 985.6 473.6zM768 128c-70.4 0-128 57.6-128 128 0 70.4 57.6 128 128 128 70.4 0 128-57.6 128-128C896 185.6 838.4 128 768 128z"
+                p-id="3044" fill="#1296db" data-darkreader-inline-fill="" style="--darkreader-inline-fill:#316986;">
+            </path>
+        </svg>
+        test
+    </a>
+    
+    <a href="https://fengluodb.github.io/tags/test1/">
+        <svg t="1648977812460" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
+            p-id="3043" data-darkreader-inline-fill="" width="16" height="16">
+            <path
+                d="M985.6 473.6 985.6 473.6l-256 256-256 256 0 0C454.4 1011.2 422.4 1024 384 1024c-38.4 0-70.4-12.8-89.6-38.4l0 0-256-256 0 0C12.8 710.4 0 678.4 0 640c0-38.4 12.8-70.4 38.4-89.6l0 0 256-256 256-256 0 0C569.6 12.8 601.6 0 640 0l256 0c70.4 0 128 57.6 128 128l0 256C1024 422.4 1011.2 454.4 985.6 473.6zM768 128c-70.4 0-128 57.6-128 128 0 70.4 57.6 128 128 128 70.4 0 128-57.6 128-128C896 185.6 838.4 128 768 128z"
+                p-id="3044" fill="#1296db" data-darkreader-inline-fill="" style="--darkreader-inline-fill:#316986;">
+            </path>
+        </svg>
+        test1
+    </a>
+    
+</div>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://fengluodb.github.io/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
