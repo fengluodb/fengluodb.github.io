@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Posts on 枫落的博客</title>
-    <link>https://fengluodb.github.io/post/</link>
-    <description>Recent content in Posts on 枫落的博客</description>
+    <title>6.824 on 枫落的博客</title>
+    <link>https://fengluodb.github.io/series/6.824/</link>
+    <description>Recent content in 6.824 on 枫落的博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Sun, 03 Apr 2022 21:35:07 +0800</lastBuildDate><atom:link href="https://fengluodb.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sun, 03 Apr 2022 21:35:07 +0800</lastBuildDate><atom:link href="https://fengluodb.github.io/series/6.824/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Mit 6.824系列(一): MapReduce论文翻译</title>
       <link>https://fengluodb.github.io/post/MapReduce/</link>

@@ -6,14 +6,14 @@
     <description>Recent content in golang on 枫落的博客</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Sun, 03 Apr 2022 10:29:08 +0800</lastBuildDate><atom:link href="https://fengluodb.github.io/categories/golang/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sun, 03 Apr 2022 21:35:07 +0800</lastBuildDate><atom:link href="https://fengluodb.github.io/categories/golang/index.xml" rel="self" type="application/rss+xml" />
     <item>
-      <title>Example Post</title>
-      <link>https://fengluodb.github.io/post/example-post/</link>
-      <pubDate>Sun, 03 Apr 2022 10:29:08 +0800</pubDate>
+      <title>Mit 6.824系列(一): MapReduce论文翻译</title>
+      <link>https://fengluodb.github.io/post/MapReduce/</link>
+      <pubDate>Sun, 03 Apr 2022 21:35:07 +0800</pubDate>
       
-      <guid>https://fengluodb.github.io/post/example-post/</guid>
-      <description>并发安全的map在日常开发中使用极为频繁，单纯通过map与sync.RWLock结合并给整个map上粗粒度锁的方式效率并不高。在go1.9中引入sync.Map，通过快慢路径的方式提升并发读性能，除此之外还可以用大锁打为小锁的方式减少并发冲突，获得更优的性能表现。 源码解析 每次操作</description>
+      <guid>https://fengluodb.github.io/post/MapReduce/</guid>
+      <description>摘要 MapReduce是一种编程模型，是处理和生成大数据集合的相关实现。用户指定一个map函数，它将一个K/V对处理生成一个中间结果的K/V对集合；以及一个reduce函数，它将中间结果中所有key相同的K/V对的value进行合并。如本文所展示的那样，真实世界中许多任务都可以用</description>
     </item>
     
   </channel>
