@@ -5,17 +5,7 @@
     <link>https://fengluodb.github.io/</link>
     <description>Recent content on 枫落的博客</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>zh-CN</language>
-    <lastBuildDate>Sun, 03 Apr 2022 21:35:07 +0800</lastBuildDate><atom:link href="https://fengluodb.github.io/index.xml" rel="self" type="application/rss+xml" />
-    <item>
-      <title>Mit 6.824系列(一): MapReduce论文翻译</title>
-      <link>https://fengluodb.github.io/post/MapReduce/</link>
-      <pubDate>Sun, 03 Apr 2022 21:35:07 +0800</pubDate>
-      
-      <guid>https://fengluodb.github.io/post/MapReduce/</guid>
-      <description>摘要 MapReduce是一种编程模型，是处理和生成大数据集合的相关实现。用户指定一个map函数，它将一个K/V对处理生成一个中间结果的K/V对集合；以及一个reduce函数，它将中间结果中所有key相同的K/V对的value进行合并。如本文所展示的那样，真实世界中许多任务都可以用</description>
-    </item>
-    
+    <language>zh-CN</language><atom:link href="https://fengluodb.github.io/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>归档</title>
       <link>https://fengluodb.github.io/archives/</link>
