@@ -5,7 +5,26 @@
     <link>https://fengluodb.github.io/</link>
     <description>Recent content on 枫落的博客</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>zh-CN</language><atom:link href="https://fengluodb.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <language>zh-CN</language>
+    <lastBuildDate>Mon, 04 Apr 2022 18:47:45 +0800</lastBuildDate><atom:link href="https://fengluodb.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Mit 6.824系列(二): Lab1 MapReduce</title>
+      <link>https://fengluodb.github.io/post/lab1/</link>
+      <pubDate>Mon, 04 Apr 2022 18:47:45 +0800</pubDate>
+      
+      <guid>https://fengluodb.github.io/post/lab1/</guid>
+      <description>本文介绍6.824的第一个实验 —— MapReduce的实现过程。 实验要求 Your job is to implement a distributed MapReduce, consisting of two programs, the coordinator and the worker. There will be just one coordinator process, and one or more worker processes executing in parallel. In a real system the workers would run on a bunch of different machines, but for this lab you&amp;rsquo;ll run them all on a single machine. The workers will talk to the coordinator via RPC. Each worker process will ask the coordinator for a task, read the task&amp;rsquo;s input from one or more files, execute the task, and write the task&amp;rsquo;s output to one or more files. The coordinator should notice</description>
+    </item>
+    
+    <item>
+      <title>Mit 6.824系列(一): MapReduce论文翻译</title>
+      <link>https://fengluodb.github.io/post/MapReduce/</link>
+      <pubDate>Sun, 03 Apr 2022 21:35:07 +0800</pubDate>
+      
+      <guid>https://fengluodb.github.io/post/MapReduce/</guid>
+      <description>摘要 MapReduce是一种编程模型，是处理和生成大数据集合的相关实现。用户指定一个map函数，它将一个K/V对处理生成一个中间结果的K/V对集合；以及一个reduce函数，它将中间结果中所有key相同的K/V对的value进行合并。如本文所展示的那样，真实世界中许多任务都可以用</description>
+    </item>
+    
     <item>
       <title>归档</title>
       <link>https://fengluodb.github.io/archives/</link>
