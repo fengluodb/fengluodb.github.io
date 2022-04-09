@@ -301,12 +301,28 @@
         <div class="post-content">
             <p>本文介绍6.824的第一个实验 —— MapReduce的实现过程。</p>
 <h2 id="mapreduce概述">MapReduce概述</h2>
-<p>MapReduce是Google提出的一个软件架构，用于大规模数据集的并行计算。用户指定一个<em>Map</em>函数，用来把一组键值对映射成一组新的键值对，指定一个<em>Reduce</em>函数，将新键值对中的元素进行适当的合并处理。</p>
-<h3 id="map-和-reduce">Map 和 Reduce</h3>
-<p>简单来说，一个Map函数就是对一些独立元素组成的概念上的列表（例如，一个测试成绩的列表）的每一个元素进行指定的操作（比如，有人发现所有学生的成绩都被高估了一分，他可以定义一个“减一”的映射函数，用来修正这个错误。）。事实上，每个元素都是被独立操作的，而原始列表没有被更改，因为这里创建了一个新的列表来保存新的答案。这就是说，Map操作是可以高度并行的，这对高性能要求的应用以及<a href="https://www.wikiwand.com/zh-hans/%E5%B9%B6%E8%A1%8C%E8%AE%A1%E7%AE%97">并行计算</a>领域的需求非常有用。</p>
-<p>而Reduce操作指的是对一个列表的元素进行适当的合并（继续看前面的例子，如果有人想知道班级的平均分该怎么做？他可以定义一个归约函数，通过让列表中的奇数（odd）或偶数（even）元素跟自己的相邻的元素相加的方式把列表减半，如此递归运算直到列表只剩下一个元素，然后用这个元素除以人数，就得到了平均分）。虽然他不如映射函数那么并行，但是因为归约总是有一个简单的答案，大规模的运算相对独立，所以归约函数在高度并行环境下也很有用。</p>
-<h3 id="分步和可靠性">分步和可靠性</h3>
+<p>MapReduce是一种编程模型，是处理和生成大数据集合的相关实现。用户指定一个map函数，它将一个K/V对处理生成一个中间结果的K/V对集合；以及一个reduce函数，它将中间结果中所有key相同的K/V对的value进行合并。</p>
+<h3 id="编程模型">编程模型</h3>
+<p>MapReduce的计算过程就是由输入的K/V对集合生成输出K/V对集合。MapReduce库的用户把计算过程表达为两个函数：Map和Reduce。</p>
+<p>Map：由用户编写，根据输入的一个K/V对生成一组中间结果K/V对。MapReduce库负责将key相同的中间结果的value汇集在一起并把它们传递给Reduce函数。</p>
+<p>Reduce：也是由用户编写，接收中间结果的key和以这个key为键的所有中间结果的value的集合。Reduce函数合并这些value，产生一个更小的value集合。最典型的情况是每次调用Reduce输出0个或1个值。中间结果通过迭代器的方式被用户的Reduce函数访问，避免了当中间结果的value集合比较大时无法将它们全部装入内存。</p>
+<p>示例：考虑一个问题，给定一个大规模的文档集合，统计每个单词的出现次数。用户会写出类似下面的伪代码：</p>
+<pre tabindex="0"><code>map(String key, String value):
+  // key: document name
+  // value: document contents
+  for each word w in value:
+    EmitIntermediate(w, &#34;1&#34;);
+
+reduce(String key, Iterator values):
+  // key: a word
+  // values: a list of counts
+  int result = 0;
+  for each v in values:
+    result += ParseInt(v);
+  Emit(AsString(result));
+</code></pre><h3 id="分步和可靠性">分步和可靠性</h3>
 <p>MapReduce通过把对数据集的大规模操作分发给网络上的每个节点实现可靠性；<strong>每个节点会周期性的把完成的工作和状态的更新报告回来。如果一个节点保持沉默超过一个预设的时间间隔，主节点记录下这个节点状态为死亡，并把分配给这个节点的数据发到别的节点。</strong></p>
+<p>注：该实验中无需考虑主节点死亡的情况。</p>
 <h2 id="实验要求">实验要求</h2>
 <blockquote>
 <p>Your job is to implement a distributed MapReduce, consisting of two programs, the coordinator and the worker. There will be just one coordinator process, and one or more worker processes executing in parallel. In a real system the workers would run on a bunch of different machines, but for this lab you&rsquo;ll run them all on a single machine. The workers will talk to the coordinator via RPC. Each worker process will ask the coordinator for a task, read the task&rsquo;s input from one or more files, execute the task, and write the task&rsquo;s output to one or more files. The coordinator should notice if a worker hasn&rsquo;t completed its task in a reasonable amount of time (for this lab, use ten seconds), and give the same task to a different worker.</p>

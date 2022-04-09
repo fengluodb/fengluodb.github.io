@@ -13,7 +13,7 @@
       <pubDate>Mon, 04 Apr 2022 18:47:45 +0800</pubDate>
       
       <guid>https://fengluodb.github.io/post/lab1/</guid>
-      <description>本文介绍6.824的第一个实验 —— MapReduce的实现过程。 MapReduce概述 MapReduce是Google提出的一个软件架构，用于大规模数据集的并行计算。用户指定一个Map函数，用来把一组键值对映射成一组新的键值对，指定一个Reduce函数，将新键值对中的元素进行适当</description>
+      <description>本文介绍6.824的第一个实验 —— MapReduce的实现过程。 MapReduce概述 MapReduce是一种编程模型，是处理和生成大数据集合的相关实现。用户指定一个map函数，它将一个K/V对处理生成一个中间结果的K/V对集合；以及一个reduce函数，它将中间结果中所有key</description>
     </item>
     
     <item>
