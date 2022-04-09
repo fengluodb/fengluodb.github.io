@@ -300,26 +300,239 @@
         
         <div class="post-content">
             <p>本文介绍6.824的第一个实验 —— MapReduce的实现过程。</p>
+<h2 id="mapreduce概述">MapReduce概述</h2>
+<p>MapReduce是Google提出的一个软件架构，用于大规模数据集的并行计算。用户指定一个<em>Map</em>函数，用来把一组键值对映射成一组新的键值对，指定一个<em>Reduce</em>函数，将新键值对中的元素进行适当的合并处理。</p>
+<h3 id="map-和-reduce">Map 和 Reduce</h3>
+<p>简单来说，一个Map函数就是对一些独立元素组成的概念上的列表（例如，一个测试成绩的列表）的每一个元素进行指定的操作（比如，有人发现所有学生的成绩都被高估了一分，他可以定义一个“减一”的映射函数，用来修正这个错误。）。事实上，每个元素都是被独立操作的，而原始列表没有被更改，因为这里创建了一个新的列表来保存新的答案。这就是说，Map操作是可以高度并行的，这对高性能要求的应用以及<a href="https://www.wikiwand.com/zh-hans/%E5%B9%B6%E8%A1%8C%E8%AE%A1%E7%AE%97">并行计算</a>领域的需求非常有用。</p>
+<p>而Reduce操作指的是对一个列表的元素进行适当的合并（继续看前面的例子，如果有人想知道班级的平均分该怎么做？他可以定义一个归约函数，通过让列表中的奇数（odd）或偶数（even）元素跟自己的相邻的元素相加的方式把列表减半，如此递归运算直到列表只剩下一个元素，然后用这个元素除以人数，就得到了平均分）。虽然他不如映射函数那么并行，但是因为归约总是有一个简单的答案，大规模的运算相对独立，所以归约函数在高度并行环境下也很有用。</p>
+<h3 id="分步和可靠性">分步和可靠性</h3>
+<p>MapReduce通过把对数据集的大规模操作分发给网络上的每个节点实现可靠性；<strong>每个节点会周期性的把完成的工作和状态的更新报告回来。如果一个节点保持沉默超过一个预设的时间间隔，主节点记录下这个节点状态为死亡，并把分配给这个节点的数据发到别的节点。</strong></p>
 <h2 id="实验要求">实验要求</h2>
 <blockquote>
 <p>Your job is to implement a distributed MapReduce, consisting of two programs, the coordinator and the worker. There will be just one coordinator process, and one or more worker processes executing in parallel. In a real system the workers would run on a bunch of different machines, but for this lab you&rsquo;ll run them all on a single machine. The workers will talk to the coordinator via RPC. Each worker process will ask the coordinator for a task, read the task&rsquo;s input from one or more files, execute the task, and write the task&rsquo;s output to one or more files. The coordinator should notice if a worker hasn&rsquo;t completed its task in a reasonable amount of time (for this lab, use ten seconds), and give the same task to a different worker.</p>
 </blockquote>
-<p>你的工作是实现一个分布式的MapReduce。它由两个程序组成，<code>coordinator</code>（协调者）和 <code>worker</code>（工作者）。实验中只有一个协调者进程，但有一个或多个并行执行的工作者进程。在一个真实的系统中，工作者进程会在一堆不同的机器上运行，但在这个实验室中，你将在一台机器上运行它们。工作者将通过RPC与协调者对话。每个工作进程将向调度者请求一个任务，从一个或多个文件中读取任务的输入，执行任务，并将任务的输出写入一个或多个文件中。如果一个工作进程在合理的时间内没有完成其任务（在本实验室中，使用10秒），协调者应该注意到，并将相同的任务交给不同的工作进程。</p>
+<p>你的工作是实现一个分布式的MapReduce。它由两个程序组成，<code>coordinator</code>（协调者）和 <code>worker</code>（工作者）。实验中只有一个协调者进程，但有一个或多个并行执行的工作者进程。在一个真实的系统中，工作者进程会在一堆不同的机器上运行，但在这个实验中，你将在一台机器上运行它们。工作者将通过RPC与协调者对话。每个工作进程将向调度者请求一个任务，从一个或多个文件中读取任务的输入，执行任务，并将任务的输出写入一个或多个文件中。如果一个工作进程在合理的时间内没有完成其任务（在本实验中，使用10秒），协调者应该注意到，并将相同的任务交给不同的工作进程。</p>
 <blockquote>
 <p>We have given you a little code to start you off. The &ldquo;main&rdquo; routines for the coordinator and worker are in <code>main/mrcoordinator.go</code> and <code>main/mrworker.go</code>; don&rsquo;t change these files. You should put your implementation in <code>mr/coordinator.go</code>, <code>mr/worker.go</code>, and <code>mr/rpc.go</code>.</p>
 </blockquote>
-<p>我们已经给了你一点代码，让你开始工作。协调者和工作者的 &ldquo;主要 &ldquo;例程在<code>main/mrcoordinator.go</code>和<code>main/mrworker.go</code>中；不要改变这些文件。你应该把你的实现放在<code>mr/coordinator.go</code>、<code>mr/worker.go和mr/rpc.go</code>。</p>
-<h2 id="整体流程">整体流程</h2>
-<p>关于如何完成这个实验，<a href="https://pdos.csail.mit.edu/6.824/labs/lab-mr.html">lab1的课程主页</a>中给予了足够的提示。首先，我们阅读 <code>src/main/mrsequential.go</code>，它是mapreduce的简单单线程实现。</p>
-<h3 id="mrsequentialgo源码解读"><code>mrsequential.go</code>源码解读</h3>
-<p><code>mrsequential.go</code>的代码逻辑十分简单，我们直接从<code>main</code>函数中的代码开始解读。</p>
-<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">if</span> <span style="color:#a90d91">len</span>(<span style="color:#000">os</span>.<span style="color:#000">Args</span>) &lt; <span style="color:#1c01ce">3</span> {
-</span></span><span style="display:flex;"><span>		<span style="color:#000">fmt</span>.<span style="color:#000">Fprintf</span>(<span style="color:#000">os</span>.<span style="color:#000">Stderr</span>, <span style="color:#c41a16">&#34;Usage: mrsequential xxx.so inputfiles...\n&#34;</span>)
-</span></span><span style="display:flex;"><span>		<span style="color:#000">os</span>.<span style="color:#000">Exit</span>(<span style="color:#1c01ce">1</span>)
+<p>我们已经给了你一点代码，让你开始工作。协调者和工作者的 &ldquo;主要 &ldquo;例程在<code>main/mrcoordinator.go</code>和<code>main/mrworker.go</code>中，不要改变这些文件。你应该把你的实现放在<code>mr/coordinator.go</code>、<code>mr/worker.go和mr/rpc.go</code>。</p>
+<h2 id="代码思路">代码思路</h2>
+<p>通过我对MapReduce的简要介绍和实验要求，我们可以理清每个文件中应实现的功能。</p>
+<p>首先，<code>coordinator.go</code>对应MapReduce中的主节点，它需要实现以下功能：</p>
+<ol>
+<li>当<code>worker</code>请求任务时，将数据分发给它；</li>
+<li>记录每个<code>worker</code>的工作时间，如果<code>worker</code>长时间未响应，默认worker死亡，重新分配任务。</li>
+</ol>
+<p><code>worker.go</code>对应MapReduce中的工作者节点，它需要实现以下功能：</p>
+<ol>
+<li>定期向主节点请求任务；</li>
+<li>当任务完成后，向主节点发送完成的工作和状态更新。</li>
+</ol>
+<p><code>rpc.go</code>是lab1的要求，<code>worker</code>通过rpc与<code>coordinator</code>对话，所以我们只需在<code>rpc.go</code>定义自己的RPC参数即可。</p>
+<h2 id="代码实现">代码实现</h2>
+<h3 id="rpcgo实现"><code>rpc.go</code>实现</h3>
+<p>定义了我们的RPC后，我们才能知道<code>worker.go</code>和<code>coordinator.go</code>中需要如何请求和回复。所以，我们先从<code>rpc.go</code>开始实现。</p>
+<p>请读者自行思考一分钟，<code>worker</code>该如何发送什么数据，<code>coordinator</code>需要回复什么数据。</p>
+<p>首先，我们需要给每个任务分配一个Id，这样Coordinator才能知道自己分配了哪些任务，worker才能回复自己完成了什么任务。</p>
+<p>给任务分配了Id后，我们还需要给不同的任务分配不同的参数。一个Map任务，<code>coordinator</code>只需要提供一个源文件的地址即可（Worker完成map任务后，除了任务Id外，还需回传中间文件的地址）；而一个Reduce任务，我们需要提供任务对应的全部中间文件的地址。</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">type</span> <span style="color:#000">Args</span> <span style="color:#a90d91">struct</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#000">Index</span> <span style="color:#a90d91">int</span> <span style="color:#177500">// Index为-1代表请求任务，大于0时代表对应任务完成
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>
+</span></span><span style="display:flex;"><span>	<span style="color:#177500">// 当worker完成map时传回的参数
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">IntermediateFiles</span> <span style="color:#a90d91">map</span>[<span style="color:#a90d91">int</span>]<span style="color:#a90d91">string</span>
 </span></span><span style="display:flex;"><span>}
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#000">mapf</span>, <span style="color:#000">reducef</span> <span style="color:#000">:=</span> <span style="color:#000">loadPlugin</span>(<span style="color:#000">os</span>.<span style="color:#000">Args</span>[<span style="color:#1c01ce">1</span>])
-</span></span></code></pre></div><p>这部分代码是准备阶段，通过命令行传入的参数，加载对应的 <code>mapf</code>、<code>reducef</code>函数。</p>
+</span></span><span style="display:flex;"><span><span style="color:#a90d91">type</span> <span style="color:#000">Reply</span> <span style="color:#a90d91">struct</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#000">Index</span> <span style="color:#a90d91">int</span> <span style="color:#177500">// 任务对应的编号
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>
+</span></span><span style="display:flex;"><span>	<span style="color:#177500">// 当前任务为map时传给worker的参数
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">File</span>    <span style="color:#a90d91">string</span> <span style="color:#177500">// 文件名
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">NReduce</span> <span style="color:#a90d91">int</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#177500">// 当前任务为reduce时传给worker的参数
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">IntermediateFiles</span> []<span style="color:#a90d91">string</span> <span style="color:#177500">// 存放中间键的文件
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>}
+</span></span></code></pre></div><p>注：按照实验要求，map阶段应该把中间键分成<code>nReduce</code>个中间文件，其中<code>nReduce</code>是reduce任务的数量。所以<code>Reply</code>中增加了NRdcue参数。</p>
+<blockquote>
+<p>The map phase should divide the intermediate keys into buckets for <code>nReduce</code> reduce tasks, where <code>nReduce</code> is the number of reduce tasks &ndash; argument that <code>main/mrcoordinator.go</code> passes to <code>MakeCoordinator()</code>. So, each mapper needs to create <code>nReduce</code> intermediate files for consumption by the reduce tasks.</p>
+</blockquote>
+<h3 id="coordinator实现"><code>coordinator</code>实现</h3>
+<p>定义好RPC后，我们开始在<code>coordinator.go</code>中实现对应的函数。我将这个函数命名为<code>Task</code>。</p>
+<p>首先，收到<code>worker</code>的请求时，我们需要根据<code>Index</code>判断，Worker是请求分配任务，还是回复任务Index已经完成。</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">func</span> (<span style="color:#000">c</span> <span style="color:#000">*</span><span style="color:#000">Coordinator</span>) <span style="color:#000">Task</span>(<span style="color:#000">args</span> <span style="color:#000">*</span><span style="color:#000">Args</span>, <span style="color:#000">reply</span> <span style="color:#000">*</span><span style="color:#000">Reply</span>) <span style="color:#a90d91">error</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#a90d91">if</span> <span style="color:#000">args</span>.<span style="color:#000">Index</span> <span style="color:#000">==</span> <span style="color:#000">-</span><span style="color:#1c01ce">1</span> { <span style="color:#177500">// worker请求任务
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>		<span style="color:#177500">// 你的代码
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	} <span style="color:#a90d91">else</span> {  <span style="color:#177500">// worker回复该任务已完成
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>        <span style="color:#177500">// 你的代码
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>    }
+</span></span><span style="display:flex;"><span>	<span style="color:#a90d91">return</span> <span style="color:#a90d91">nil</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>注：请求任务时，需要根据目前状态提供参数，如果是MapReduce还在Map阶段，则提供<code>File</code>和<code>NReduce</code>；如果在Reduce阶段，则提供对应任务所需的中间文件的位置——<code>IntermediateFiles</code>。回复任务完成时，你需要标注对应任务已完成，如果当前状态在Map阶段，还需要处理回复的<code>IntermediateFiles </code>。</p>
+<p>实现了<code>Task</code>后，我们只是完成了分配任务的功能。并没有实现容错功能——如果<code>worker</code>长时间未响应，默认worker死亡，重新分配任务。所以，我们还需在后台运行一个<code>goroutine</code>，定期检查哪些任务长时间未完成，并将它们重新分配。</p>
+<p>我将这个函数命名为<code>Check</code></p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">func</span> (<span style="color:#000">c</span> <span style="color:#000">*</span><span style="color:#000">Coordinator</span>) <span style="color:#000">Check</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a90d91">for</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#000">time</span>.<span style="color:#000">Sleep</span>(<span style="color:#1c01ce">500</span> <span style="color:#000">*</span> <span style="color:#000">time</span>.<span style="color:#000">Millisecond</span>)  <span style="color:#177500">// 每隔0.5s检查是否有任务超时未完成
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>        <span style="color:#177500">// 你的代码
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>因此，我们的<code>Coordinator</code>结构体可定义为：</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">type</span> <span style="color:#000">Coordinator</span> <span style="color:#a90d91">struct</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#177500">// Your definitions here.
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">mu</span>                <span style="color:#000">sync</span>.<span style="color:#000">Mutex</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#000">flag</span>              <span style="color:#a90d91">int</span> <span style="color:#177500">// 0代表map阶段，1代表reduce阶段，2代表所有工作完成
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">files</span>             []<span style="color:#a90d91">string</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#000">intermediateFiles</span> <span style="color:#a90d91">map</span>[<span style="color:#a90d91">int</span>][]<span style="color:#a90d91">string</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#000">nReduce</span>           <span style="color:#a90d91">int</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#000">wait</span>  []<span style="color:#000">Task</span> <span style="color:#177500">// 任务队列1，存放待分配的任务
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">doing</span> []<span style="color:#000">Task</span> <span style="color:#177500">// 任务队列2，存放正在进行的任务
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">done</span>  []<span style="color:#000">Task</span> <span style="color:#177500">// 任务队列3，存放完成的任务
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>}
+</span></span></code></pre></div><p>注：可能有多个worker同时请求，我们需要确保并发安全，所以<code>Coordinator</code>中定义了一个锁。</p>
+<p><code>Task</code>是我自定义的结构体：</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">type</span> <span style="color:#000">Task</span> <span style="color:#a90d91">struct</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#000">index</span>  <span style="color:#a90d91">int</span>  <span style="color:#177500">// 任务Id
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">status</span> <span style="color:#a90d91">int</span>  <span style="color:#177500">// 任务的状态
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>    <span style="color:#000">time</span>   <span style="color:#000">time</span>.<span style="color:#000">Time</span> <span style="color:#177500">// 任务的起始时间
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>}
+</span></span></code></pre></div><p><code>Coordinator</code>定义完成，我们向<code>Task</code>中加入具体代码：</p>
+<p>当给<code>worker</code>分配任务时：</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">if</span> <span style="color:#a90d91">len</span>(<span style="color:#000">c</span>.<span style="color:#000">wait</span>) <span style="color:#000">!=</span> <span style="color:#1c01ce">0</span> { <span style="color:#177500">// wait不为空，分配任务
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">task</span> <span style="color:#000">:=</span> <span style="color:#000">c</span>.<span style="color:#000">wait</span>[<span style="color:#1c01ce">0</span>] <span style="color:#177500">// 从wait中取出任务
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>    <span style="color:#000">c</span>.<span style="color:#000">wait</span> = <span style="color:#000">c</span>.<span style="color:#000">wait</span>[<span style="color:#1c01ce">1</span>:]
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>	<span style="color:#000">task</span>.<span style="color:#000">status</span> = <span style="color:#000">Doing</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#000">task</span>.<span style="color:#000">time</span> = <span style="color:#000">time</span>.<span style="color:#000">Now</span>()
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>	
+</span></span><span style="display:flex;"><span>	<span style="color:#000">c</span>.<span style="color:#000">doing</span> = <span style="color:#a90d91">append</span>(<span style="color:#000">c</span>.<span style="color:#000">doing</span>, <span style="color:#000">task</span>) <span style="color:#177500">// 向doing队列中添加该任务
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">reply</span>.<span style="color:#000">Index</span> = <span style="color:#000">task</span>.<span style="color:#000">index</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#177500">// 根据不同阶段，提供不同参数
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#a90d91">if</span> <span style="color:#000">c</span>.<span style="color:#000">flag</span> <span style="color:#000">==</span> <span style="color:#1c01ce">0</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000">reply</span>.<span style="color:#000">File</span> = <span style="color:#000">c</span>.<span style="color:#000">files</span>[<span style="color:#000">task</span>.<span style="color:#000">index</span>]
+</span></span><span style="display:flex;"><span>		<span style="color:#000">reply</span>.<span style="color:#000">NReduce</span> = <span style="color:#000">c</span>.<span style="color:#000">nReduce</span>
+</span></span><span style="display:flex;"><span>	} <span style="color:#a90d91">else</span> <span style="color:#a90d91">if</span> <span style="color:#000">c</span>.<span style="color:#000">flag</span> <span style="color:#000">==</span> <span style="color:#1c01ce">1</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000">reply</span>.<span style="color:#000">IntermediateFiles</span> = <span style="color:#000">c</span>.<span style="color:#000">intermediateFiles</span>[<span style="color:#000">task</span>.<span style="color:#000">index</span>]
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>当收到<code>worker</code>回复任务完成的请求时：</p>
+<p>首先，判断该任务是否已经完成过，如果没执行过在<code>done</code>中添加，并在<code>doing</code>中标识该任务已完成。</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000">isvalid</span> <span style="color:#000">:=</span> <span style="color:#a90d91">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#a90d91">for</span> <span style="color:#000">i</span> <span style="color:#000">:=</span> <span style="color:#1c01ce">0</span>; <span style="color:#000">i</span> &lt; <span style="color:#a90d91">len</span>(<span style="color:#000">c</span>.<span style="color:#000">done</span>); <span style="color:#000">i</span><span style="color:#000">++</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#a90d91">if</span> <span style="color:#000">c</span>.<span style="color:#000">done</span>[<span style="color:#000">i</span>].<span style="color:#000">index</span> <span style="color:#000">==</span> <span style="color:#000">args</span>.<span style="color:#000">Index</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000">isvalid</span> = <span style="color:#a90d91">false</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a90d91">break</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a90d91">if</span> <span style="color:#000">isvalid</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#177500">// 如果该任务之前没有执行过，在done中添加
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">task</span> <span style="color:#000">:=</span> <span style="color:#000">Task</span>{
+</span></span><span style="display:flex;"><span>		<span style="color:#000">index</span>:  <span style="color:#000">args</span>.<span style="color:#000">Index</span>,
+</span></span><span style="display:flex;"><span>		<span style="color:#000">status</span>: <span style="color:#000">Completed</span>,
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#000">c</span>.<span style="color:#000">done</span> = <span style="color:#a90d91">append</span>(<span style="color:#000">c</span>.<span style="color:#000">done</span>, <span style="color:#000">task</span>)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#177500">// 在doing中标识该任务已完成，待Check处理
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>    <span style="color:#a90d91">for</span> <span style="color:#000">i</span> <span style="color:#000">:=</span> <span style="color:#1c01ce">0</span>; <span style="color:#000">i</span> &lt; <span style="color:#a90d91">len</span>(<span style="color:#000">c</span>.<span style="color:#000">doing</span>); <span style="color:#000">i</span><span style="color:#000">++</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a90d91">if</span> <span style="color:#000">c</span>.<span style="color:#000">doing</span>[<span style="color:#000">i</span>].<span style="color:#000">index</span> <span style="color:#000">==</span> <span style="color:#000">args</span>.<span style="color:#000">Index</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#000">c</span>.<span style="color:#000">doing</span>[<span style="color:#000">i</span>].<span style="color:#000">status</span> = <span style="color:#000">Completed</span>
+</span></span><span style="display:flex;"><span>			<span style="color:#a90d91">break</span>
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>如果当前状态是<code>map</code>，我们还需更新<code>intermediateFiles</code>参数。</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">if</span> <span style="color:#000">args</span>.<span style="color:#000">IntermediateFiles</span> <span style="color:#000">!=</span> <span style="color:#a90d91">nil</span> <span style="color:#000">&amp;&amp;</span> <span style="color:#000">c</span>.<span style="color:#000">flag</span> <span style="color:#000">==</span> <span style="color:#1c01ce">0</span> { <span style="color:#177500">// worker完成map后传回的参数
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#177500">// 判断该map任务是否已经执行过，如果未执行过，更新intermediateFiles
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#a90d91">if</span> <span style="color:#000">isvalid</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a90d91">for</span> <span style="color:#000">k</span>, <span style="color:#000">v</span> <span style="color:#000">:=</span> <span style="color:#a90d91">range</span> <span style="color:#000">args</span>.<span style="color:#000">IntermediateFiles</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#000">c</span>.<span style="color:#000">intermediateFiles</span>[<span style="color:#000">k</span>] = <span style="color:#a90d91">append</span>(<span style="color:#000">c</span>.<span style="color:#000">intermediateFiles</span>[<span style="color:#000">k</span>], <span style="color:#000">v</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#177500">// fmt.Printf(&#34;intermediateFiles[%d] length: %d\n&#34;, k, len(c.intermediateFiles[k]))
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这样我们的<code>Task</code>已经全部完成，接下来填充<code>Check</code>函数。</p>
+<p>首先，检查<code>doing</code>中是否有超时未完成的任务，如果有，将其重新分配给<code>wait</code></p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000">length</span> <span style="color:#000">:=</span> <span style="color:#a90d91">len</span>(<span style="color:#000">c</span>.<span style="color:#000">doing</span>)
+</span></span><span style="display:flex;"><span><span style="color:#a90d91">for</span> <span style="color:#000">i</span> <span style="color:#000">:=</span> <span style="color:#1c01ce">0</span>; <span style="color:#000">i</span> &lt; <span style="color:#000">length</span>; <span style="color:#000">i</span><span style="color:#000">++</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#a90d91">if</span> <span style="color:#000">c</span>.<span style="color:#000">doing</span>[<span style="color:#000">i</span>].<span style="color:#000">status</span> <span style="color:#000">==</span> <span style="color:#000">Completed</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a90d91">continue</span>
+</span></span><span style="display:flex;"><span>	} <span style="color:#a90d91">else</span> <span style="color:#a90d91">if</span> <span style="color:#000">c</span>.<span style="color:#000">doing</span>[<span style="color:#000">i</span>].<span style="color:#000">status</span> <span style="color:#000">==</span> <span style="color:#000">Doing</span> <span style="color:#000">&amp;&amp;</span> <span style="color:#000">time</span>.<span style="color:#000">Now</span>().<span style="color:#000">Sub</span>(<span style="color:#000">c</span>.<span style="color:#000">doing</span>[<span style="color:#000">i</span>].<span style="color:#000">time</span>) &gt; <span style="color:#1c01ce">10</span><span style="color:#000">*</span><span style="color:#000">time</span>.<span style="color:#000">Second</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000">c</span>.<span style="color:#000">doing</span>[<span style="color:#000">i</span>].<span style="color:#000">status</span> = <span style="color:#000">Wait</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#000">c</span>.<span style="color:#000">wait</span> = <span style="color:#a90d91">append</span>(<span style="color:#000">c</span>.<span style="color:#000">wait</span>, <span style="color:#000">c</span>.<span style="color:#000">doing</span>[<span style="color:#000">i</span>])
+</span></span><span style="display:flex;"><span>	} <span style="color:#a90d91">else</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000">c</span>.<span style="color:#000">doing</span> = <span style="color:#a90d91">append</span>(<span style="color:#000">c</span>.<span style="color:#000">doing</span>, <span style="color:#000">c</span>.<span style="color:#000">doing</span>[<span style="color:#000">i</span>])
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#000">c</span>.<span style="color:#000">doing</span> = <span style="color:#000">c</span>.<span style="color:#000">doing</span>[<span style="color:#000">length</span>]
+</span></span></code></pre></div><p>其次，因为<code>Check</code>在后台定期执行，我们还可将更新MapReduce状态的任务交给它；</p>
+<p>当<code>wait</code>与<code>doing</code>中没有任务时，更新当前状态</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">if</span> <span style="color:#000">c</span>.<span style="color:#000">flag</span> <span style="color:#000">==</span> <span style="color:#1c01ce">0</span> <span style="color:#000">&amp;&amp;</span> <span style="color:#a90d91">len</span>(<span style="color:#000">c</span>.<span style="color:#000">wait</span>) <span style="color:#000">==</span> <span style="color:#1c01ce">0</span> <span style="color:#000">&amp;&amp;</span> <span style="color:#a90d91">len</span>(<span style="color:#000">c</span>.<span style="color:#000">doing</span>) <span style="color:#000">==</span> <span style="color:#1c01ce">0</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#000">c</span>.<span style="color:#000">flag</span> = <span style="color:#1c01ce">1</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#177500">// 分配reduce任务
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">c</span>.<span style="color:#000">done</span> = []<span style="color:#000">Task</span>{}
+</span></span><span style="display:flex;"><span>	<span style="color:#a90d91">for</span> <span style="color:#000">k</span> <span style="color:#000">:=</span> <span style="color:#a90d91">range</span> <span style="color:#000">c</span>.<span style="color:#000">intermediateFiles</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000">task</span> <span style="color:#000">:=</span> <span style="color:#000">Task</span>{
+</span></span><span style="display:flex;"><span>			<span style="color:#000">index</span>:  <span style="color:#000">k</span>,
+</span></span><span style="display:flex;"><span>			<span style="color:#000">status</span>: <span style="color:#000">Wait</span>,
+</span></span><span style="display:flex;"><span>			<span style="color:#000">time</span>:   <span style="color:#000">time</span>.<span style="color:#000">Now</span>(),
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		<span style="color:#000">c</span>.<span style="color:#000">wait</span> = <span style="color:#a90d91">append</span>(<span style="color:#000">c</span>.<span style="color:#000">wait</span>, <span style="color:#000">task</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#177500">// fmt.Println(&#34;map ending&#34;)
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>} <span style="color:#a90d91">else</span> <span style="color:#a90d91">if</span> <span style="color:#000">c</span>.<span style="color:#000">flag</span> <span style="color:#000">==</span> <span style="color:#1c01ce">1</span> <span style="color:#000">&amp;&amp;</span> <span style="color:#a90d91">len</span>(<span style="color:#000">c</span>.<span style="color:#000">wait</span>) <span style="color:#000">==</span> <span style="color:#1c01ce">0</span> <span style="color:#000">&amp;&amp;</span> <span style="color:#a90d91">len</span>(<span style="color:#000">c</span>.<span style="color:#000">doing</span>) <span style="color:#000">==</span> <span style="color:#1c01ce">0</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#000">c</span>.<span style="color:#000">flag</span> = <span style="color:#1c01ce">2</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#177500">// fmt.Println(&#34;reduce ending&#34;)
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>}
+</span></span></code></pre></div><p>到此，我们的<code>coordinator.go</code>已经基本完成，剩余少量代码读者自行补充。</p>
+<p>注：<code>Task</code>和<code>Check</code>中的操作都需要加锁保护。</p>
+<h3 id="workergo实现"><code>worker.go</code>实现</h3>
+<p>根据实验的要求，我们只需完成<code>worker.go</code>中的<code>Worker</code>函数即可。</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#177500">//
+</span></span></span><span style="display:flex;"><span><span style="color:#177500">// main/mrworker.go calls this function.
+</span></span></span><span style="display:flex;"><span><span style="color:#177500">//
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span><span style="color:#a90d91">func</span> <span style="color:#000">Worker</span>(<span style="color:#000">mapf</span> <span style="color:#a90d91">func</span>(<span style="color:#a90d91">string</span>, <span style="color:#a90d91">string</span>) []<span style="color:#000">KeyValue</span>,
+</span></span><span style="display:flex;"><span>	<span style="color:#000">reducef</span> <span style="color:#a90d91">func</span>(<span style="color:#a90d91">string</span>, []<span style="color:#a90d91">string</span>) <span style="color:#a90d91">string</span>) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#177500">// Your worker implementation here.
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>
+</span></span><span style="display:flex;"><span>	<span style="color:#177500">// uncomment to send the Example RPC to the coordinator.
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#177500">// CallExample()
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>}
+</span></span></code></pre></div><p>因为<code>worker</code>需要定期向<code>Coordinator</code>请求任务，所以首先我们需要加一个for循环，不断请求任务</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>	<span style="color:#a90d91">for</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000">args</span> <span style="color:#000">:=</span> <span style="color:#000">Args</span>{}
+</span></span><span style="display:flex;"><span>		<span style="color:#000">reply</span> <span style="color:#000">:=</span> <span style="color:#000">Reply</span>{}
+</span></span><span style="display:flex;"><span>		<span style="color:#000">args</span>.<span style="color:#000">Index</span> = <span style="color:#000">-</span><span style="color:#1c01ce">1</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#000">ok</span> <span style="color:#000">:=</span> <span style="color:#000">call</span>(<span style="color:#c41a16">&#34;Coordinator.Task&#34;</span>, <span style="color:#000">&amp;</span><span style="color:#000">args</span>, <span style="color:#000">&amp;</span><span style="color:#000">reply</span>)
+</span></span><span style="display:flex;"><span>		<span style="color:#177500">// 你的代码
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	}
+</span></span></code></pre></div><p>成功得到回复后，根据任务类型，执行相应功能；未能得到回复，则重新发送请求</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">if</span> <span style="color:#000">ok</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#177500">// 如果reply.Done为true，代表coordinate任务完成，所有worker退出
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#a90d91">if</span> <span style="color:#000">reply</span>.<span style="color:#000">Done</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a90d91">return</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a90d91">if</span> <span style="color:#000">reply</span>.<span style="color:#000">File</span> <span style="color:#000">!=</span> <span style="color:#c41a16">&#34;&#34;</span> { <span style="color:#177500">// file不为空，执行map任务
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>		<span style="color:#000">DoM</span>(<span style="color:#000">mapf</span>, <span style="color:#000">reply</span>.<span style="color:#000">File</span>, <span style="color:#000">reply</span>.<span style="color:#000">NReduce</span>, <span style="color:#000">reply</span>.<span style="color:#000">Index</span>)
+</span></span><span style="display:flex;"><span>	} <span style="color:#a90d91">else</span> <span style="color:#a90d91">if</span> <span style="color:#000">reply</span>.<span style="color:#000">IntermediateFiles</span> <span style="color:#000">!=</span> <span style="color:#a90d91">nil</span> { <span style="color:#177500">// intermediate不为空，执行reduce任务
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>		<span style="color:#000">DoR</span>(<span style="color:#000">reducef</span>, <span style="color:#000">reply</span>.<span style="color:#000">IntermediateFiles</span>, <span style="color:#000">reply</span>.<span style="color:#000">Index</span>)
+</span></span><span style="display:flex;"><span>	} <span style="color:#a90d91">else</span> { <span style="color:#177500">// 没有分配任务，休眠0.1s后重新请求任务
+</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>		<span style="color:#000">time</span>.<span style="color:#000">Sleep</span>(<span style="color:#1c01ce">100</span> <span style="color:#000">*</span> <span style="color:#000">time</span>.<span style="color:#000">Millisecond</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>} <span style="color:#a90d91">else</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#000">fmt</span>.<span style="color:#000">Printf</span>(<span style="color:#c41a16">&#34;call failed!\n&#34;</span>)
+</span></span><span style="display:flex;"><span>	<span style="color:#000">time</span>.<span style="color:#000">Sleep</span>(<span style="color:#1c01ce">100</span> <span style="color:#000">*</span> <span style="color:#000">time</span>.<span style="color:#000">Millisecond</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>到此，我们的<code>Worker</code>函数已经完成。而<code>DoM</code>和<code>DoR</code>是我自己定义的函数，将具体的Map和Reduce执行过程从<code>Worker</code>中剥离出来，使代码更具可读性。对于具体的Map和Reduce如何实现，我们可以参考实验中给出的示例——<code>mrsequential.go</code>。</p>
+<h3 id="mrsequentialgo源码解读"><code>mrsequential.go</code>源码解读</h3>
+<p><code>src/main/mrsequential.go</code>，它是mapreduce的简单单线程实现。通过对它的阅读，我们可以了解实验中如何完成Map和Reduce函数。</p>
+<p><code>mrsequential.go</code>的代码十分简单，MapReduce的实现呐都在<code>main</code>函数中。</p>
+<p>下面的这段代码是单线程的Map实现。我们只需读取一个文件的全部内容——<code>content</code>，然后再对其调用Map函数——<code>mapf</code>进行处理即可，Map生成的新键值对保存在<code>intermediate</code>中。</p>
 <div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#177500">//
 </span></span></span><span style="display:flex;"><span><span style="color:#177500">// read each input file,
 </span></span></span><span style="display:flex;"><span><span style="color:#177500">// pass it to Map,
@@ -339,7 +552,7 @@
 </span></span><span style="display:flex;"><span>	<span style="color:#000">kva</span> <span style="color:#000">:=</span> <span style="color:#000">mapf</span>(<span style="color:#000">filename</span>, <span style="color:#a90d91">string</span>(<span style="color:#000">content</span>))
 </span></span><span style="display:flex;"><span>	<span style="color:#000">intermediate</span> = <span style="color:#a90d91">append</span>(<span style="color:#000">intermediate</span>, <span style="color:#000">kva</span><span style="color:#000">...</span>)
 </span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>这部分代码是map阶段，调用<code>mapf</code>函数对每个文件的内容进行处理，生成中间键并保存。</p>
+</span></span></code></pre></div><p>下面的这段代码是单线程的Reduce实现。首先，对得到的新键值对进行排序，然后将新键值对划分成多个集合，每个集合中的键值对必须具有相同的key，最后，再对每个集合调用Reduce函数——<code>reducef</code>进行合并处理，并将结果写入输出文件中。</p>
 <div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000">sort</span>.<span style="color:#000">Sort</span>(<span style="color:#000">ByKey</span>(<span style="color:#000">intermediate</span>))
 </span></span><span style="display:flex;"><span>
 </span></span><span style="display:flex;"><span><span style="color:#000">oname</span> <span style="color:#000">:=</span> <span style="color:#c41a16">&#34;mr-out-0&#34;</span>
@@ -357,8 +570,8 @@
 </span></span><span style="display:flex;"><span>	}
 </span></span><span style="display:flex;"><span>	<span style="color:#000">values</span> <span style="color:#000">:=</span> []<span style="color:#a90d91">string</span>{}
 </span></span><span style="display:flex;"><span>	<span style="color:#a90d91">for</span> <span style="color:#000">k</span> <span style="color:#000">:=</span> <span style="color:#000">i</span>; <span style="color:#000">k</span> &lt; <span style="color:#000">j</span>; <span style="color:#000">k</span><span style="color:#000">++</span> {
-</span></span><span style="display:flex;"><span>		<span style="color:#000">values</span> = <span style="color:#a90d91">append</span>(<span style="color:#000">values</span>, <span style="color:#000">intermediate</span>[<span style="color:#000">k</span>].<span style="color:#000">Value</span>)  <span style="color:#177500">// 聚集具有相同key的中间键
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	}
+</span></span><span style="display:flex;"><span>		<span style="color:#000">values</span> = <span style="color:#a90d91">append</span>(<span style="color:#000">values</span>, <span style="color:#000">intermediate</span>[<span style="color:#000">k</span>].<span style="color:#000">Value</span>)  
+</span></span><span style="display:flex;"><span>	}
 </span></span><span style="display:flex;"><span>	<span style="color:#000">output</span> <span style="color:#000">:=</span> <span style="color:#000">reducef</span>(<span style="color:#000">intermediate</span>[<span style="color:#000">i</span>].<span style="color:#000">Key</span>, <span style="color:#000">values</span>)
 </span></span><span style="display:flex;"><span>
 </span></span><span style="display:flex;"><span>	<span style="color:#177500">// this is the correct format for each line of Reduce output.
@@ -368,94 +581,7 @@
 </span></span><span style="display:flex;"><span>}
 </span></span><span style="display:flex;"><span>
 </span></span><span style="display:flex;"><span><span style="color:#000">ofile</span>.<span style="color:#000">Close</span>()
-</span></span></code></pre></div><p>这部分代码是<code>reduce</code>阶段，先对中间键进行排序，然后在调用<code>reducef</code>函数对同一key的所有中间键进行处理，最后将处理的结果写入硬盘保存。</p>
-<h3 id="coordinator和worker"><code>coordinator</code>和<code>worker</code></h3>
-<p><code>mrsequential.go</code>的代码读完之后，你可能对如何实现还是一头雾水。不过不要紧，我们对比实验要求一条条来分析。</p>
-<p>首先，我们的mapreduce是分布式的，由一个<code>coordinator</code>（协调者）线程和多个 <code>worker</code>（工作者）线程组成，不是<code>mrsequential.go</code>这样的单线程程序。</p>
-<p>回到 <code>mrcoordinator.go</code>和<code>mrworker.go</code>的代码中，我们可以知道<code>coordinator</code>（协调者）得到的参数只有待处理文件的位置；<code>worker</code>（工作者）得到的参数只有<code>map</code>和<code>reduce</code>函数。</p>
-<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#177500">// coordinator
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span><span style="color:#a90d91">if</span> <span style="color:#a90d91">len</span>(<span style="color:#000">os</span>.<span style="color:#000">Args</span>) &lt; <span style="color:#1c01ce">2</span> {
-</span></span><span style="display:flex;"><span>	<span style="color:#000">fmt</span>.<span style="color:#000">Fprintf</span>(<span style="color:#000">os</span>.<span style="color:#000">Stderr</span>, <span style="color:#c41a16">&#34;Usage: mrcoordinator inputfiles...\n&#34;</span>)
-</span></span><span style="display:flex;"><span>	<span style="color:#000">os</span>.<span style="color:#000">Exit</span>(<span style="color:#1c01ce">1</span>)
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#000">m</span> <span style="color:#000">:=</span> <span style="color:#000">mr</span>.<span style="color:#000">MakeCoordinator</span>(<span style="color:#000">os</span>.<span style="color:#000">Args</span>[<span style="color:#1c01ce">1</span>:], <span style="color:#1c01ce">10</span>)
-</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">if</span> <span style="color:#a90d91">len</span>(<span style="color:#000">os</span>.<span style="color:#000">Args</span>) <span style="color:#000">!=</span> <span style="color:#1c01ce">2</span> {
-</span></span><span style="display:flex;"><span>	<span style="color:#000">fmt</span>.<span style="color:#000">Fprintf</span>(<span style="color:#000">os</span>.<span style="color:#000">Stderr</span>, <span style="color:#c41a16">&#34;Usage: mrworker xxx.so\n&#34;</span>)
-</span></span><span style="display:flex;"><span>	<span style="color:#000">os</span>.<span style="color:#000">Exit</span>(<span style="color:#1c01ce">1</span>)
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#000">mapf</span>, <span style="color:#000">reducef</span> <span style="color:#000">:=</span> <span style="color:#000">loadPlugin</span>(<span style="color:#000">os</span>.<span style="color:#000">Args</span>[<span style="color:#1c01ce">1</span>])
-</span></span><span style="display:flex;"><span><span style="color:#000">mr</span>.<span style="color:#000">Worker</span>(<span style="color:#000">mapf</span>, <span style="color:#000">reducef</span>)
-</span></span></code></pre></div><p>所以，我们没法像<code>mrsequential.go</code>一样直接开始运行。</p>
-<blockquote>
-<p>The workers will talk to the coordinator via RPC. Each worker process will ask the coordinator for a task, read the task&rsquo;s input from one or more files, execute the task, and write the task&rsquo;s output to one or more files.</p>
-</blockquote>
-<p>按照实验要求，worker需要通RPC向coordinator请求文件位置，然后读取文件内容，执行任务，在将任务的输出写入硬盘中。</p>
-<p>回到<code>Worker</code>函数中</p>
-<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">func</span> <span style="color:#000">Worker</span>(<span style="color:#000">mapf</span> <span style="color:#a90d91">func</span>(<span style="color:#a90d91">string</span>, <span style="color:#a90d91">string</span>) []<span style="color:#000">KeyValue</span>,
-</span></span><span style="display:flex;"><span>	<span style="color:#000">reducef</span> <span style="color:#a90d91">func</span>(<span style="color:#a90d91">string</span>, []<span style="color:#a90d91">string</span>) <span style="color:#a90d91">string</span>) {
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>	<span style="color:#177500">// Your worker implementation here.
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>
-</span></span><span style="display:flex;"><span>	<span style="color:#177500">// uncomment to send the Example RPC to the coordinator.
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#177500">// CallExample()
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>}
-</span></span></code></pre></div><p>可以看到注释提示我们在这里发送RPC给coordinator。所以，接下来我们需要实现自己的RPC。</p>
-<h3 id="rpc的实现">RPC的实现</h3>
-<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">type</span> <span style="color:#000">Args</span> <span style="color:#a90d91">struct</span> {
-</span></span><span style="display:flex;"><span>	<span style="color:#000">Index</span> <span style="color:#a90d91">int</span> <span style="color:#177500">// Index为-1代表请求任务，大于0时代表对应任务完成
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>
-</span></span><span style="display:flex;"><span>	<span style="color:#177500">// 当worker完成map时传回的参数
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">IntermediateFiles</span> <span style="color:#a90d91">map</span>[<span style="color:#a90d91">int</span>]<span style="color:#a90d91">string</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>	<span style="color:#177500">// reduce完成时传回的参数
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a90d91">type</span> <span style="color:#000">Reply</span> <span style="color:#a90d91">struct</span> {
-</span></span><span style="display:flex;"><span>	<span style="color:#000">Done</span>  <span style="color:#a90d91">bool</span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">Index</span> <span style="color:#a90d91">int</span> <span style="color:#177500">// 任务对应的编号
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>
-</span></span><span style="display:flex;"><span>	<span style="color:#177500">// 当前任务为map时传给worker的参数
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">File</span>    <span style="color:#a90d91">string</span> <span style="color:#177500">// 文件名
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">NReduce</span> <span style="color:#a90d91">int</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>	<span style="color:#177500">// 当前任务为reduce时传给worker的参数
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">IntermediateFiles</span> []<span style="color:#a90d91">string</span> <span style="color:#177500">// 存放中间键的文件
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>}
-</span></span></code></pre></div><p>上面是我定义的RPC参数。此处可以按照自己的想法增减参数。</p>
-<p>参数定义完成后，还需要在<code>coordinator.go</code>中实现相应的函数，我实现的函数命名为<code>Task</code>。<code>Task</code>函数的具体内容要配合<code>coordinator.go</code>中的其他内容一同讲解，所以先跳过。</p>
-<h3 id="worker的实现">Worker的实现</h3>
-<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">func</span> <span style="color:#000">Worker</span>(<span style="color:#000">mapf</span> <span style="color:#a90d91">func</span>(<span style="color:#a90d91">string</span>, <span style="color:#a90d91">string</span>) []<span style="color:#000">KeyValue</span>,
-</span></span><span style="display:flex;"><span>	<span style="color:#000">reducef</span> <span style="color:#a90d91">func</span>(<span style="color:#a90d91">string</span>, []<span style="color:#a90d91">string</span>) <span style="color:#a90d91">string</span>) {
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a90d91">for</span> {  <span style="color:#177500">// worker完成一个任务继续请求新任务，直到coordinator通知退出才退出。所以需要加for循环
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>		<span style="color:#000">args</span> <span style="color:#000">:=</span> <span style="color:#000">Args</span>{}
-</span></span><span style="display:flex;"><span>		<span style="color:#000">reply</span> <span style="color:#000">:=</span> <span style="color:#000">Reply</span>{}
-</span></span><span style="display:flex;"><span>		<span style="color:#000">args</span>.<span style="color:#000">Index</span> = <span style="color:#000">-</span><span style="color:#1c01ce">1</span>  <span style="color:#177500">// Index为-1，代表请求任务
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>		<span style="color:#000">ok</span> <span style="color:#000">:=</span> <span style="color:#000">call</span>(<span style="color:#c41a16">&#34;Coordinator.Task&#34;</span>, <span style="color:#000">&amp;</span><span style="color:#000">args</span>, <span style="color:#000">&amp;</span><span style="color:#000">reply</span>)
-</span></span><span style="display:flex;"><span>		<span style="color:#a90d91">if</span> <span style="color:#000">ok</span> {
-</span></span><span style="display:flex;"><span>			<span style="color:#177500">// 如果reply.Done为true，代表coordinate任务完成，所有worker退出
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>			<span style="color:#a90d91">if</span> <span style="color:#000">reply</span>.<span style="color:#000">Done</span> {
-</span></span><span style="display:flex;"><span>				<span style="color:#a90d91">return</span>
-</span></span><span style="display:flex;"><span>			}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>			<span style="color:#a90d91">if</span> <span style="color:#000">reply</span>.<span style="color:#000">File</span> <span style="color:#000">!=</span> <span style="color:#c41a16">&#34;&#34;</span> { <span style="color:#177500">// file不为空，执行map任务
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>				<span style="color:#000">DoM</span>(<span style="color:#000">mapf</span>, <span style="color:#000">reply</span>.<span style="color:#000">File</span>, <span style="color:#000">reply</span>.<span style="color:#000">NReduce</span>, <span style="color:#000">reply</span>.<span style="color:#000">Index</span>)
-</span></span><span style="display:flex;"><span>			} <span style="color:#a90d91">else</span> <span style="color:#a90d91">if</span> <span style="color:#000">reply</span>.<span style="color:#000">IntermediateFiles</span> <span style="color:#000">!=</span> <span style="color:#a90d91">nil</span> { <span style="color:#177500">// intermediate不为空，执行reduce任务
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>				<span style="color:#000">DoR</span>(<span style="color:#000">reducef</span>, <span style="color:#000">reply</span>.<span style="color:#000">IntermediateFiles</span>, <span style="color:#000">reply</span>.<span style="color:#000">Index</span>)
-</span></span><span style="display:flex;"><span>			} <span style="color:#a90d91">else</span> { <span style="color:#177500">// 两者都为空，代表未分配任务，休眠100ms再重新请求
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>				<span style="color:#000">time</span>.<span style="color:#000">Sleep</span>(<span style="color:#1c01ce">100</span> <span style="color:#000">*</span> <span style="color:#000">time</span>.<span style="color:#000">Millisecond</span>)
-</span></span><span style="display:flex;"><span>			}
-</span></span><span style="display:flex;"><span>		} <span style="color:#a90d91">else</span> {
-</span></span><span style="display:flex;"><span>            <span style="color:#177500">// RPC请求失败，重新调用
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>            <span style="color:#177500">// RPC请求失败可能是因为coordinator已经结束，所以此处也可直接退出。
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>			<span style="color:#000">fmt</span>.<span style="color:#000">Printf</span>(<span style="color:#c41a16">&#34;call failed!\n&#34;</span>)
-</span></span><span style="display:flex;"><span>			<span style="color:#000">time</span>.<span style="color:#000">Sleep</span>(<span style="color:#1c01ce">100</span> <span style="color:#000">*</span> <span style="color:#000">time</span>.<span style="color:#000">Millisecond</span>)
-</span></span><span style="display:flex;"><span>		}
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>上面的代码是我的<code>Worker</code>函数实现。<code>DoM</code>和<code>DoR</code>是我自己定义的函数，将具体的Map和Reduce执行过程从中剥离出来，使代码更具可读性。</p>
+</span></span></code></pre></div><p>了解了<code>Map</code>和<code>Reduce</code>如何实现，我们开始编写我们的<code>DoM</code>和<code>DoR</code>函数。</p>
 <h3 id="dom函数-和-dor函数"><code>DoM</code>函数 和 <code>DoR</code>函数</h3>
 <div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">func</span> <span style="color:#000">DoM</span>(<span style="color:#000">mapf</span> <span style="color:#a90d91">func</span>(<span style="color:#a90d91">string</span>, <span style="color:#a90d91">string</span>) []<span style="color:#000">KeyValue</span>, <span style="color:#000">filename</span> <span style="color:#a90d91">string</span>, <span style="color:#000">NReduce</span>, <span style="color:#000">index</span> <span style="color:#a90d91">int</span>) {
 </span></span><span style="display:flex;"><span>	<span style="color:#177500">// 读取task输入
@@ -591,106 +717,13 @@
 </span></span><span style="display:flex;"><span>    <span style="color:#000">kva</span> = <span style="color:#a90d91">append</span>(<span style="color:#000">kva</span>, <span style="color:#000">kv</span>)
 </span></span><span style="display:flex;"><span>  }
 </span></span></code></pre></div></blockquote>
-<p>到此，我们的<code>worker</code>就已经全部完成了。接下来，我们开始思考如何实现<code>coordinator</code>。</p>
-<h3 id="coordinator的实现">Coordinator的实现</h3>
-<p>与<code>worker</code>的实现相比，<code>coordinator</code>的实现想起来就较为复杂一些。一些逻辑在lab1的主页中也没有提示，需要我们对论文中的内容较为熟悉才能想到。</p>
-<p>我们是从<code>coordinator</code>的RPC函数开始实现。不过，在此之前，我们先定义好<code>Coordinator</code>结构体。想一想，我们需要在<code>Coordinator</code>中填充什么参数。</p>
-<p>根据定义的RPC参数，我们可以增加以下内容：</p>
-<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">type</span> <span style="color:#000">Coordinator</span> <span style="color:#a90d91">struct</span> {
-</span></span><span style="display:flex;"><span>	<span style="color:#177500">// Your definitions here.
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">flag</span>              <span style="color:#a90d91">int</span> <span style="color:#177500">// 0代表map阶段，1代表reduce阶段，2代表所有工作完成
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">files</span>             []<span style="color:#a90d91">string</span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">intermediateFiles</span> <span style="color:#a90d91">map</span>[<span style="color:#a90d91">int</span>][]<span style="color:#a90d91">string</span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">nReduce</span>           <span style="color:#a90d91">int</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><code>flag</code>标识现在的状态，根据状态传输相应的参数；<code>files</code>存储原始文件的位置，<code>intermediateFiles</code>存储每个reduce worker对应的中间文件的位置；<code>nReduce</code>是reduce worker的数量。</p>
-<p>然后想想，还需要增加参数吗？</p>
-<p>当然，只有这些参数我们无法得知分配任务时那些任务需要分配。</p>
-<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">type</span> <span style="color:#000">Coordinator</span> <span style="color:#a90d91">struct</span> {
-</span></span><span style="display:flex;"><span>	<span style="color:#177500">// Your definitions here.
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">mu</span>                <span style="color:#000">sync</span>.<span style="color:#000">Mutex</span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">flag</span>              <span style="color:#a90d91">int</span> <span style="color:#177500">// 0代表map阶段，1代表reduce阶段，2代表所有工作完成
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">files</span>             []<span style="color:#a90d91">string</span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">intermediateFiles</span> <span style="color:#a90d91">map</span>[<span style="color:#a90d91">int</span>][]<span style="color:#a90d91">string</span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">nReduce</span>           <span style="color:#a90d91">int</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">queue1</span> []<span style="color:#000">Task</span> <span style="color:#177500">// 任务队列1，存放待分配的任务
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a90d91">type</span> <span style="color:#000">Task</span> <span style="color:#a90d91">struct</span> {
-</span></span><span style="display:flex;"><span>	<span style="color:#000">index</span>  <span style="color:#a90d91">int</span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">status</span> <span style="color:#a90d91">int</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>所以，我们添加<code>queue1</code>，存放待分配的任务。并且，因为多个worker同时调用RPC时，会并发读写任务队列，所以还需要加锁。</p>
-<p>下面，就是<code>Coordinator</code>的生成函数</p>
-<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">func</span> <span style="color:#000">MakeCoordinator</span>(<span style="color:#000">files</span> []<span style="color:#a90d91">string</span>, <span style="color:#000">nReduce</span> <span style="color:#a90d91">int</span>) <span style="color:#000">*</span><span style="color:#000">Coordinator</span> {
-</span></span><span style="display:flex;"><span>	<span style="color:#000">c</span> <span style="color:#000">:=</span> <span style="color:#000">Coordinator</span>{}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>	<span style="color:#177500">// Your code here.
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#000">c</span>.<span style="color:#000">files</span> = <span style="color:#000">files</span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">c</span>.<span style="color:#000">nReduce</span> = <span style="color:#000">nReduce</span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">c</span>.<span style="color:#000">flag</span> = <span style="color:#1c01ce">0</span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">c</span>.<span style="color:#000">intermediateFiles</span> = <span style="color:#a90d91">make</span>(<span style="color:#a90d91">map</span>[<span style="color:#a90d91">int</span>][]<span style="color:#a90d91">string</span>)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>	<span style="color:#177500">// 在queue1中存放待分配map任务
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>	<span style="color:#a90d91">for</span> <span style="color:#000">i</span> <span style="color:#000">:=</span> <span style="color:#a90d91">range</span> <span style="color:#000">files</span> {
-</span></span><span style="display:flex;"><span>		<span style="color:#000">task</span> <span style="color:#000">:=</span> <span style="color:#000">Task</span>{
-</span></span><span style="display:flex;"><span>			<span style="color:#000">index</span>:  <span style="color:#000">i</span>,
-</span></span><span style="display:flex;"><span>			<span style="color:#000">status</span>: <span style="color:#000">Wait</span>,
-</span></span><span style="display:flex;"><span>		}
-</span></span><span style="display:flex;"><span>		<span style="color:#000">c</span>.<span style="color:#000">queue1</span> = <span style="color:#a90d91">append</span>(<span style="color:#000">c</span>.<span style="color:#000">queue1</span>, <span style="color:#000">task</span>)
-</span></span><span style="display:flex;"><span>	}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>	<span style="color:#000">c</span>.<span style="color:#000">server</span>()
-</span></span><span style="display:flex;"><span>	<span style="color:#a90d91">return</span> <span style="color:#000">&amp;</span><span style="color:#000">c</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>接下来，我们实现<code>Task</code>函数。</p>
-<ol>
-<li>首先，根据<code>args.Index</code>判断<code>worker</code>是在请求任务，还是在回复任务已经完成；</li>
-<li>如果是请求任务，判断<code>queue1</code>是否为空，如果不为空，则分配任务；</li>
-<li>如果是worker在回复任务已完成，检查该任务是否执行过，如果没有，更新参数。</li>
-</ol>
-<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a90d91">func</span> (<span style="color:#000">c</span> <span style="color:#000">*</span><span style="color:#000">Coordinator</span>) <span style="color:#000">Task</span>(<span style="color:#000">args</span> <span style="color:#000">*</span><span style="color:#000">Args</span>, <span style="color:#000">reply</span> <span style="color:#000">*</span><span style="color:#000">Reply</span>) <span style="color:#a90d91">error</span> {
-</span></span><span style="display:flex;"><span>	<span style="color:#a90d91">if</span> <span style="color:#000">args</span>.<span style="color:#000">Index</span> <span style="color:#000">==</span> <span style="color:#000">-</span><span style="color:#1c01ce">1</span> { <span style="color:#177500">// worker请求任务
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>		<span style="color:#000">c</span>.<span style="color:#000">mu</span>.<span style="color:#000">Lock</span>()
-</span></span><span style="display:flex;"><span>		<span style="color:#a90d91">if</span> <span style="color:#000">c</span>.<span style="color:#000">flag</span> <span style="color:#000">==</span> <span style="color:#1c01ce">2</span> { <span style="color:#177500">// flag为2，代表所有任务完成，等待退出
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>			<span style="color:#000">reply</span>.<span style="color:#000">Done</span> = <span style="color:#a90d91">true</span>
-</span></span><span style="display:flex;"><span>		}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>		<span style="color:#a90d91">if</span> <span style="color:#a90d91">len</span>(<span style="color:#000">c</span>.<span style="color:#000">queue1</span>) <span style="color:#000">!=</span> <span style="color:#1c01ce">0</span> {
-</span></span><span style="display:flex;"><span>			<span style="color:#000">task</span> <span style="color:#000">:=</span> <span style="color:#000">c</span>.<span style="color:#000">queue1</span>[<span style="color:#1c01ce">0</span>]
-</span></span><span style="display:flex;"><span>			<span style="color:#000">task</span>.<span style="color:#000">status</span> = <span style="color:#000">Doing</span>
-</span></span><span style="display:flex;"><span>			<span style="color:#000">c</span>.<span style="color:#000">queue1</span> = <span style="color:#000">c</span>.<span style="color:#000">queue1</span>[<span style="color:#1c01ce">1</span>:]
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>			<span style="color:#000">reply</span>.<span style="color:#000">Index</span> = <span style="color:#000">task</span>.<span style="color:#000">index</span>
-</span></span><span style="display:flex;"><span>			<span style="color:#a90d91">if</span> <span style="color:#000">c</span>.<span style="color:#000">flag</span> <span style="color:#000">==</span> <span style="color:#1c01ce">0</span> {
-</span></span><span style="display:flex;"><span>				<span style="color:#000">reply</span>.<span style="color:#000">File</span> = <span style="color:#000">c</span>.<span style="color:#000">files</span>[<span style="color:#000">task</span>.<span style="color:#000">index</span>]
-</span></span><span style="display:flex;"><span>				<span style="color:#000">reply</span>.<span style="color:#000">NReduce</span> = <span style="color:#000">c</span>.<span style="color:#000">nReduce</span>
-</span></span><span style="display:flex;"><span>			} <span style="color:#a90d91">else</span> <span style="color:#a90d91">if</span> <span style="color:#000">c</span>.<span style="color:#000">flag</span> <span style="color:#000">==</span> <span style="color:#1c01ce">1</span> {
-</span></span><span style="display:flex;"><span>				<span style="color:#000">reply</span>.<span style="color:#000">IntermediateFiles</span> = <span style="color:#000">c</span>.<span style="color:#000">intermediateFiles</span>[<span style="color:#000">task</span>.<span style="color:#000">index</span>]
-</span></span><span style="display:flex;"><span>			}
-</span></span><span style="display:flex;"><span>		}
-</span></span><span style="display:flex;"><span>		<span style="color:#000">c</span>.<span style="color:#000">mu</span>.<span style="color:#000">Unlock</span>()
-</span></span><span style="display:flex;"><span>	} <span style="color:#a90d91">else</span> {
-</span></span><span style="display:flex;"><span>		<span style="color:#000">c</span>.<span style="color:#000">mu</span>.<span style="color:#000">Lock</span>()
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>		<span style="color:#a90d91">if</span> <span style="color:#000">args</span>.<span style="color:#000">IntermediateFiles</span> <span style="color:#000">!=</span> <span style="color:#a90d91">nil</span> <span style="color:#000">&amp;&amp;</span> <span style="color:#000">c</span>.<span style="color:#000">flag</span> <span style="color:#000">==</span> <span style="color:#1c01ce">0</span> { <span style="color:#177500">// worker完成map后传回的参数
-</span></span></span><span style="display:flex;"><span><span style="color:#177500"></span>			<span style="color:#a90d91">for</span> <span style="color:#000">k</span>, <span style="color:#000">v</span> <span style="color:#000">:=</span> <span style="color:#a90d91">range</span> <span style="color:#000">args</span>.<span style="color:#000">IntermediateFiles</span> {
-</span></span><span style="display:flex;"><span>				<span style="color:#000">c</span>.<span style="color:#000">intermediateFiles</span>[<span style="color:#000">k</span>] = <span style="color:#a90d91">append</span>(<span style="color:#000">c</span>.<span style="color:#000">intermediateFiles</span>[<span style="color:#000">k</span>], <span style="color:#000">v</span>)
-</span></span><span style="display:flex;"><span>			}
-</span></span><span style="display:flex;"><span>		}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>        <span style="color:#000">c</span>.<span style="color:#000">mu</span>.<span style="color:#000">Unlock</span>()
-</span></span><span style="display:flex;"><span>	}
-</span></span><span style="display:flex;"><span>	<span style="color:#a90d91">return</span> <span style="color:#a90d91">nil</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>这样，我们的<code>Coordinator</code>就算实现了，你可以开始测试。但是，你会发现部分测试无法通过，如<code>crash</code>。这时，我们回到<code>nocrash.go</code>看其中的<code>map</code>和<code>reduce</code>函数，你会发现两个函数开始都会调用<code>maybeCrash</code>函数，随机Crash。也就是说，<code>coordinator</code>分配给worker的任务可能没有成功执行，worker就退出了。</p>
-<p>这说明，我们的<code>coordinator</code>缺失容错机制，当一个任务长时间没过完成时，我们要将它重新分配。对应论文中的这部分内容：</p>
-<blockquote>
-<p>The master pings every worker periodically. If no response is received from a worker in a certain amount of time, the master marks the worker as failed. Any map tasks completed by <strong>the worker</strong> are reset back to their initial idle state, and therefore become eligible for scheduling on other workers.</p>
-</blockquote>
-<p>所以，我们需要增加一个<code>Check</code>函数，定期检查哪些任务长时间未完成，并将这些任务重新分配。同时，我们还需要对<code>Coordinator.go</code>中的其他函数进行部分修改。</p>
-<p>到此，lab1的整体流程都已经介绍完毕，剩下的部分修改就不再介绍了。读者自行思考，完整代码，以后会给出GitHub链接。</p>
+<p>到此，我们的<code>worker</code>就已经全部完成了。</p>
+<h2 id="测试结果">测试结果</h2>
+<p>实验完成后，我对代码进行了多次测试，都能成功通过。</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span> bash test-mr-many.sh <span style="color:#1c01ce">20</span>
+</span></span><span style="display:flex;"><span> ...
+</span></span><span style="display:flex;"><span> *** PASSED ALL <span style="color:#1c01ce">20</span> TESTING TRIALS
+</span></span></code></pre></div><p>完整代码在此。</p>
 
         </div>
 
